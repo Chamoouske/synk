@@ -112,17 +112,7 @@ func (z *ZeroconfService) discoverDevices() {
 	defer cancel()
 
 	go func() {
-		for entry := range entries {
-			log.Info(fmt.Sprintf("Dispositivo detectado: %s (%s)",
-				entry.Instance, entry.AddrIPv4))
-
-			if deviceID := getIDFromMetadata(entry.Text); deviceID != "" {
-				log.Info(fmt.Sprintf("ID encontrado: %s", deviceID))
-				if deviceID != z.device.ID {
-					go connectToDevice(entry)
-				}
-			}
-		}
+		z.findDevices(entries)
 	}()
 
 	err = resolver.Browse(ctx, z.config.Service.Type, z.config.Service.Domain, entries)
@@ -131,6 +121,22 @@ func (z *ZeroconfService) discoverDevices() {
 	}
 
 	<-ctx.Done()
+}
+
+func (z *ZeroconfService) findDevices(entries chan *zeroconf.ServiceEntry) error {
+	for entry := range entries {
+		deviceID := getIDFromMetadata(entry.Text)
+		if deviceID == "" {
+			continue
+		}
+		if deviceID == z.device.ID {
+			continue
+		}
+		log.Info(fmt.Sprintf("ID encontrado: %s", deviceID))
+		go connectToDevice(entry)
+	}
+
+	return nil
 }
 
 func getIDFromMetadata(txt []string) string {
