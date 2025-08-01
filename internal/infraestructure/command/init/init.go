@@ -88,10 +88,6 @@ func (c *InitCommand) registerService(device domain.Device) error {
 	return nil
 }
 
-func (c *InitCommand) UnregisterService() error {
-	return nil
-}
-
 func getConfigServer() (domain.Config, error) {
 	var config domain.Config
 	err := gcfg.ReadFileInto(&config, "config/service.cfg")
