@@ -112,6 +112,7 @@ func (z *ZeroconfService) discoverDevices() {
 
 func (z *ZeroconfService) findDevices(entries chan *zeroconf.ServiceEntry) error {
 	for entry := range entries {
+		log.Info(fmt.Sprintf("Descoberto: %s em %s Porta: %d", entry.Instance, entry.AddrIPv4, entry.Port))
 		deviceID := getIDFromMetadata(entry.Text)
 		if deviceID == "" {
 			continue
