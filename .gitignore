@@ -1,0 +1,44 @@
+# Arquivos de dependência do Go
+# O diretório vendor não é necessário se todos estiverem usando Go modules
+/vendor/
+
+# Binários compilados
+# Assumindo que o nome do executável será 'synk'
+synk
+synk.exe
+main
+main.exe
+
+# Arquivos gerados pelo projeto Synk
+# Chaves, certificados e IDs de dispositivo nunca devem ser versionados.
+# Eles são únicos para cada instalação e contêm informações sensíveis.
+*.pem
+*.key
+device.id
+
+# Arquivos de log
+*.log
+*.log.*
+
+# Arquivos de configuração de IDEs populares
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Arquivos de ferramentas de teste e cobertura de código
+/coverage/
+*.out
+
+# Arquivos de configuração de ambiente (ex: .env)
+.env
+.env.*
+!.env.example
+
+# Arquivos de cache
+.cache/
