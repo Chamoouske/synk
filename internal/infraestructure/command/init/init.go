@@ -1,13 +1,10 @@
 package init
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"encoding/pem"
+	"fmt"
 	"os"
 	"synk/internal/domain"
+	"synk/internal/infraestructure/pem"
 )
 
 const CommandName = "init"
@@ -21,45 +18,41 @@ func NewInitCommand(notifyer domain.Notifyer) *InitCommand {
 }
 
 func (c *InitCommand) Execute(args []string) error {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	err := c.createKeys()
 	if err != nil {
-		c.notifyer.Notify("Erro ao gerar a chave privada ECDSA: " + err.Error())
+		c.notifyer.Notify("Erro ao criar chaves: " + err.Error())
 		os.Exit(1)
 	}
 
-	publicKey := &privateKey.PublicKey
-	privateKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
-
+	err = c.registerService()
 	if err != nil {
-		c.notifyer.Notify("Erro ao serializar a chave privada: " + err.Error())
+		c.notifyer.Notify("Erro ao registrar serviço: " + err.Error())
 		os.Exit(1)
 	}
+	return nil
+}
 
-	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "EC PRIVATE KEY",
-		Bytes: privateKeyBytes,
-	})
-
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
+func (c *InitCommand) createKeys() error {
+	privateKeyPEM, publicKeyPEM, err := pem.GenerateKeys()
 	if err != nil {
-		c.notifyer.Notify("Erro ao serializar a chave pública: " + err.Error())
-		os.Exit(1)
+		return fmt.Errorf("erro ao gerar chaves: %w", err)
 	}
-	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKeyBytes,
-	})
+
+	err = pem.SaveKeys(privateKeyPEM, publicKeyPEM)
+	if err != nil {
+		return fmt.Errorf("erro ao salvar chaves: %w", err)
+	}
 
 	c.notifyer.Notify("Chave Privada: " + string(privateKeyPEM))
 	c.notifyer.Notify("Chave Pública: " + string(publicKeyPEM))
 
-	err = os.WriteFile("ecdsa_private.pem", privateKeyPEM, 0600)
-	if err != nil {
-		c.notifyer.Notify("Erro ao salvar a chave privada ECDSA: " + err.Error())
-	}
-	err = os.WriteFile("ecdsa_public.pem", publicKeyPEM, 0644)
-	if err != nil {
-		c.notifyer.Notify("Erro ao salvar a chave pública ECDSA: " + err.Error())
-	}
+	return nil
+}
+
+func (c *InitCommand) registerService() error {
+	return nil
+}
+
+func (c *InitCommand) UnregisterService() error {
 	return nil
 }
