@@ -26,13 +26,13 @@ func NewZeroconfService(config domain.Config) (*ZeroconfService, error) {
 		return service, nil
 	}
 
-	server, err := zeroconf.Register("Synk-"+config.Service.Name, config.Service.Type, config.Service.Domain, config.Service.Port, nil, nil)
+	server, err := zeroconf.Register(config.Service.Name, config.Service.Type, config.Service.Domain, config.Service.Port, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	service = &ZeroconfService{service: server, config: config}
-	log.Info(fmt.Sprintf("Zeroconf service registered: %s", config.Service.Name))
+	log.Info(fmt.Sprintf("Zeroconf service registered: %s | porta: %d", config.Service.Name, config.Service.Port))
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)

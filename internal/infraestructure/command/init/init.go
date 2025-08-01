@@ -74,12 +74,11 @@ func (c *InitCommand) registerService(device domain.Device) (*service.ZeroconfSe
 		return nil, fmt.Errorf("erro ao obter configuração do servidor: %w", err)
 	}
 
-	config.Service.Name = device.ID
+	config.Service.Name = "Synk-" + device.ID
 	server, err := service.NewZeroconfService(config)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
 	}
-	log.Info("Serviço Zeroconf registrado com sucesso.")
 
 	return server, nil
 }
