@@ -4,35 +4,36 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"synk/internal/domain"
 	"synk/internal/infraestructure/pem"
 	"synk/internal/infraestructure/service"
+	"synk/pkg/logger"
 
 	"gopkg.in/gcfg.v1"
 )
 
 const CommandName = "init"
 
+var log = logger.GetLogger("init")
+
 type InitCommand struct {
-	notifyer domain.Notifyer
 }
 
-func NewInitCommand(notifyer domain.Notifyer) *InitCommand {
-	return &InitCommand{notifyer: notifyer}
+func NewInitCommand() *InitCommand {
+	return &InitCommand{}
 }
 
 func (c *InitCommand) Execute(args []string) error {
 	device, err := c.createKeys()
 	if err != nil {
-		c.notifyer.Notify("Erro ao criar chaves: " + err.Error())
+		log.Error("Erro ao criar chaves: " + err.Error())
 		os.Exit(1)
 	}
 
 	err = c.registerService(*device)
 	if err != nil {
-		c.notifyer.Notify("Erro ao registrar serviço: " + err.Error())
+		log.Error("Erro ao registrar serviço: " + err.Error())
 		os.Exit(1)
 	}
 	return nil
@@ -41,7 +42,7 @@ func (c *InitCommand) Execute(args []string) error {
 func (c *InitCommand) createKeys() (*domain.Device, error) {
 	device := c.LoadDevice()
 	if device != nil {
-		c.notifyer.Notify("Dispositivo carregado: " + device.ID)
+		log.Info("Dispositivo carregado: " + device.ID)
 		return device, nil
 	}
 	privateKeyPEM, publicKeyPEM, err := pem.GenerateKeys()
@@ -57,7 +58,7 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 
 	err = c.SaveDevice(device)
 
-	c.notifyer.Notify("Dispositivo criado: " + device.ID)
+	log.Info("Dispositivo criado: " + device.ID)
 
 	if err != nil {
 		return nil, fmt.Errorf("erro ao salvar dispositivo: %w", err)
@@ -76,7 +77,7 @@ func (c *InitCommand) registerService(device domain.Device) error {
 	if err != nil {
 		return fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
 	}
-	c.notifyer.Notify("Serviço Zeroconf registrado com sucesso.")
+	log.Info("Serviço Zeroconf registrado com sucesso.")
 	defer server.Unregister()
 	// return nil
 	select {}
@@ -131,7 +132,7 @@ func generateRandomID() string {
 	b := make([]byte, 8)
 	_, err := rand.Read(b)
 	if err != nil {
-		log.Fatal("Failed to generate random ID:", err)
+		log.Error("Failed to generate random ID", "error", err)
 	}
 	return fmt.Sprintf("%x", b)
 }
