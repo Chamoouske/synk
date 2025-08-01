@@ -18,6 +18,7 @@ const CommandName = "init"
 var log = logger.GetLogger("init")
 
 type InitCommand struct {
+	service domain.Service
 }
 
 func NewInitCommand() *InitCommand {
@@ -31,12 +32,14 @@ func (c *InitCommand) Execute(args []string) error {
 		os.Exit(1)
 	}
 
-	server, err := c.registerService(*device)
+	err = c.registerService(*device)
 	if err != nil {
 		log.Error("Erro ao registrar serviço: " + err.Error())
 		os.Exit(1)
 	}
-	defer server.Unregister()
+
+	c.service.Start()
+	defer c.service.Stop()
 
 	select {}
 }
@@ -68,19 +71,21 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 	return device, nil
 }
 
-func (c *InitCommand) registerService(device domain.Device) (*service.ZeroconfService, error) {
+func (c *InitCommand) registerService(device domain.Device) error {
 	config, err := getConfigServer()
 	if err != nil {
-		return nil, fmt.Errorf("erro ao obter configuração do servidor: %w", err)
+		return fmt.Errorf("erro ao obter configuração do servidor: %w", err)
 	}
 
 	config.Service.Name = "Synk-" + device.ID
 	server, err := service.NewZeroconfService(config)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
+		return fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
 	}
 
-	return server, nil
+	c.service = server
+
+	return nil
 }
 
 func (c *InitCommand) UnregisterService() error {
