@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"synk/config"
 	"synk/internal/domain"
 	"synk/internal/infraestructure/pem"
 	"synk/internal/infraestructure/service"
 	"synk/pkg/logger"
-
-	"gopkg.in/gcfg.v1"
 )
 
 const CommandName = "init"
@@ -39,6 +38,8 @@ func (c *InitCommand) Execute(args []string) error {
 	}
 
 	c.service.Start()
+	service.StartTCPServer(c.service.GetPort())
+
 	defer c.service.Stop()
 
 	select {}
@@ -72,7 +73,7 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 }
 
 func (c *InitCommand) registerService(device domain.Device) error {
-	config, err := getConfigServer()
+	config, err := config.GetConfigServer()
 	if err != nil {
 		return fmt.Errorf("erro ao obter configuração do servidor: %w", err)
 	}
@@ -85,15 +86,6 @@ func (c *InitCommand) registerService(device domain.Device) error {
 
 	c.service = server
 	return nil
-}
-
-func getConfigServer() (domain.Config, error) {
-	var config domain.Config
-	err := gcfg.ReadFileInto(&config, "config/service.cfg")
-	if err != nil {
-		return config, fmt.Errorf("falha ao ler o arquivo de configuração: %v", err)
-	}
-	return config, nil
 }
 
 func (c *InitCommand) SaveDevice(device *domain.Device) error {

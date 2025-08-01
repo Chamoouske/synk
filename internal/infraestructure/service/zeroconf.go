@@ -21,12 +21,14 @@ type ZeroconfService struct {
 	server *zeroconf.Server
 	config domain.Config
 	device *domain.Device
+	Port   int
 }
 
 func NewZeroconfService(config domain.Config, device *domain.Device) (*ZeroconfService, error) {
 	return &ZeroconfService{
 		config: config,
 		device: device,
+		Port:   config.Service.Port,
 	}, nil
 }
 
@@ -49,8 +51,6 @@ func (z *ZeroconfService) Start() error {
 	log.Info(fmt.Sprintf("Serviço registrado: %s | Porta: %d | ID: %s",
 		z.config.Service.Name, z.config.Service.Port, z.device.ID))
 
-	go z.startTCPServer()
-
 	go z.continuousDiscovery()
 
 	sigChan := make(chan os.Signal, 1)
@@ -64,30 +64,17 @@ func (z *ZeroconfService) Start() error {
 	return nil
 }
 
-func (z *ZeroconfService) startTCPServer() {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", z.config.Service.Port))
-	if err != nil {
-		log.Error("Falha ao iniciar TCP server: " + err.Error())
-		return
+func (z *ZeroconfService) Stop() error {
+	if z.server != nil {
+		z.server.Shutdown()
+		log.Info("Serviço zeroconf finalizado: " + z.config.Service.Name)
 	}
-	defer listener.Close()
 
-	log.Info("Escutando em TCP porta: " + fmt.Sprintf("%d", z.config.Service.Port))
-
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Error("Erro de conexão: " + err.Error())
-			continue
-		}
-		go z.handleConnection(conn)
-	}
+	return nil
 }
 
-func (z *ZeroconfService) handleConnection(conn net.Conn) {
-	defer conn.Close()
-	remoteAddr := conn.RemoteAddr().String()
-	log.Info("Conexão estabelecida com: " + remoteAddr)
+func (z *ZeroconfService) GetPort() int {
+	return z.Port
 }
 
 func (z *ZeroconfService) continuousDiscovery() {
@@ -163,13 +150,4 @@ func connectToDevice(entry *zeroconf.ServiceEntry) {
 	defer conn.Close()
 
 	log.Info("Conectado com sucesso a: " + entry.Instance)
-}
-
-func (z *ZeroconfService) Stop() error {
-	if z.server != nil {
-		z.server.Shutdown()
-		log.Info("Serviço zeroconf finalizado: " + z.config.Service.Name)
-	}
-
-	return nil
 }
