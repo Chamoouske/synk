@@ -31,12 +31,14 @@ func (c *InitCommand) Execute(args []string) error {
 		os.Exit(1)
 	}
 
-	err = c.registerService(*device)
+	server, err := c.registerService(*device)
 	if err != nil {
 		log.Error("Erro ao registrar serviço: " + err.Error())
 		os.Exit(1)
 	}
-	return nil
+	defer server.Unregister()
+
+	select {}
 }
 
 func (c *InitCommand) createKeys() (*domain.Device, error) {
@@ -66,21 +68,20 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 	return device, nil
 }
 
-func (c *InitCommand) registerService(device domain.Device) error {
+func (c *InitCommand) registerService(device domain.Device) (*service.ZeroconfService, error) {
 	config, err := getConfigServer()
 	if err != nil {
-		return fmt.Errorf("erro ao obter configuração do servidor: %w", err)
+		return nil, fmt.Errorf("erro ao obter configuração do servidor: %w", err)
 	}
 
 	config.Service.Name = device.ID
 	server, err := service.NewZeroconfService(config)
 	if err != nil {
-		return fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
+		return nil, fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
 	}
 	log.Info("Serviço Zeroconf registrado com sucesso.")
-	defer server.Unregister()
-	// return nil
-	select {}
+
+	return server, nil
 }
 
 func (c *InitCommand) UnregisterService() error {

@@ -17,7 +17,7 @@ func main() {
 	command := os.Args[1]
 	commandsFactory := dependency_injection.InitializeCommandsFactory()
 
-	go commandsFactory.ExecuteCommand(command, os.Args[2:])
+	commandsFactory.ExecuteCommand(command, os.Args[2:])
 
-	select {}
+	os.Exit(0)
 }
