@@ -15,100 +15,155 @@ import (
 	"github.com/grandcat/zeroconf"
 )
 
-type ZeroconfService struct {
-	service *zeroconf.Server
-	config  domain.Config
-}
-
-var service *ZeroconfService = nil
-
 var log = logger.GetLogger("zeroconf")
 
-func NewZeroconfService(config domain.Config) (*ZeroconfService, error) {
-	if service != nil {
-		return service, nil
-	}
+type ZeroconfService struct {
+	server *zeroconf.Server
+	config domain.Config
+	device *domain.Device
+}
 
-	service = &ZeroconfService{config: config}
-
-	return service, nil
+func NewZeroconfService(config domain.Config, device *domain.Device) (*ZeroconfService, error) {
+	return &ZeroconfService{
+		config: config,
+		device: device,
+	}, nil
 }
 
 func (z *ZeroconfService) Start() error {
-	server, err := zeroconf.Register(z.config.Service.Name, z.config.Service.Type, z.config.Service.Domain, z.config.Service.Port, nil, nil)
+	metadata := []string{"id=" + z.device.ID}
+
+	server, err := zeroconf.Register(
+		z.config.Service.Name,
+		z.config.Service.Type,
+		z.config.Service.Domain,
+		z.config.Service.Port,
+		metadata,
+		nil,
+	)
 	if err != nil {
 		return err
 	}
 
-	service.service = server
-	log.Info(fmt.Sprintf("Zeroconf service registered: %s | porta: %d", z.config.Service.Name, z.config.Service.Port))
+	z.server = server
+	log.Info(fmt.Sprintf("Serviço registrado: %s | Porta: %d | ID: %s",
+		z.config.Service.Name, z.config.Service.Port, z.device.ID))
+
+	go z.startTCPServer()
+
+	go z.continuousDiscovery()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
 	go func() {
 		<-sigChan
-		service.Stop()
+		z.Stop()
 		os.Exit(0)
 	}()
-	z.findAndConnectToNode("471d424ac743c8fd")
+
 	return nil
 }
 
-func (z *ZeroconfService) Stop() error {
-	if z.service != nil {
-		z.service.Shutdown()
-		log.Info(fmt.Sprintf("Zeroconf service unregistered: %s", z.config.Service.Name))
-		service = nil
-		return nil
+func (z *ZeroconfService) startTCPServer() {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", z.config.Service.Port))
+	if err != nil {
+		log.Error("Falha ao iniciar TCP server: " + err.Error())
+		return
 	}
-	return nil
+	defer listener.Close()
+
+	log.Info("Escutando em TCP porta: " + fmt.Sprintf("%d", z.config.Service.Port))
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Error("Erro de conexão: " + err.Error())
+			continue
+		}
+		go z.handleConnection(conn)
+	}
 }
 
-func (z *ZeroconfService) findAndConnectToNode(targetID string) {
-	fmt.Printf("Attempting to add device with ID: %s\n", targetID)
-	timeout := 10 * time.Second
+func (z *ZeroconfService) handleConnection(conn net.Conn) {
+	defer conn.Close()
+	remoteAddr := conn.RemoteAddr().String()
+	log.Info("Conexão estabelecida com: " + remoteAddr)
+}
+
+func (z *ZeroconfService) continuousDiscovery() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		z.discoverDevices()
+		<-ticker.C
+	}
+}
+
+func (z *ZeroconfService) discoverDevices() {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to initialize resolver: %s", err))
+		log.Error("Erro no resolvedor: " + err.Error())
+		return
 	}
 
 	entries := make(chan *zeroconf.ServiceEntry)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	go func() {
 		for entry := range entries {
-			fmt.Printf("Dispositivo encontrado: %v\n", entry)
-			fmt.Printf("  Nome: %s\n", entry.Instance)
-			fmt.Printf("  Endereço: %v\n", entry.AddrIPv4)
-			fmt.Printf("  Porta: %d\n", entry.Port)
-			fmt.Printf("  Metadados: %v\n", entry.Text)
-			if entry.Instance == fmt.Sprintf("Synk-%s", targetID) {
-				fmt.Printf("Conectando ao dispositivo com ID: %s\n", targetID)
-				connectToDevice(entry)
-				return
+			log.Info(fmt.Sprintf("Dispositivo detectado: %s (%s)",
+				entry.Instance, entry.AddrIPv4))
+
+			if deviceID := getIDFromMetadata(entry.Text); deviceID != "" {
+				log.Info(fmt.Sprintf("ID encontrado: %s", deviceID))
+				if deviceID != z.device.ID {
+					go connectToDevice(entry)
+				}
 			}
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 	err = resolver.Browse(ctx, z.config.Service.Type, z.config.Service.Domain, entries)
 	if err != nil {
-		log.Error(fmt.Sprintf("Failed to browse for services: %s", err))
+		log.Error("Erro na busca: " + err.Error())
 	}
 
 	<-ctx.Done()
-	fmt.Println("Busca de serviços concluída.")
+}
+
+func getIDFromMetadata(txt []string) string {
+	for _, item := range txt {
+		if len(item) > 3 && item[:3] == "id=" {
+			return item[3:]
+		}
+	}
+	return ""
 }
 
 func connectToDevice(entry *zeroconf.ServiceEntry) {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port), 5*time.Second)
+	if len(entry.AddrIPv4) == 0 {
+		log.Error("Sem endereço IPv4 para: " + entry.Instance)
+		return
+	}
+
+	address := fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port)
+	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
 	if err != nil {
-		fmt.Println("Failed to connect to device:", err)
+		log.Error("Conexão falhou: " + err.Error())
 		return
 	}
 	defer conn.Close()
 
-	fmt.Println("Successfully connected to the device! Ready to exchange keys and synchronize.")
-	// Aqui você implementaria a lógica de troca de chaves e sincronização
-	// usando a chave pública do outro dispositivo.
+	log.Info("Conectado com sucesso a: " + entry.Instance)
+}
+
+func (z *ZeroconfService) Stop() error {
+	if z.server != nil {
+		z.server.Shutdown()
+		log.Info("Serviço zeroconf finalizado: " + z.config.Service.Name)
+	}
+
+	return nil
 }
