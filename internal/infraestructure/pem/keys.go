@@ -36,11 +36,11 @@ func GenerateKeys() ([]byte, []byte, error) {
 }
 
 func SaveKeys(privateKeyPEM, publicKeyPEM []byte) error {
-	err := os.WriteFile("ecdsa_private.pem", privateKeyPEM, 0600)
+	err := os.WriteFile(".synk/ecdsa_private.pem", privateKeyPEM, 0600)
 	if err != nil {
 		return fmt.Errorf("Erro ao salvar a chave privada ECDSA: %w", err)
 	}
-	err = os.WriteFile("ecdsa_public.pem", publicKeyPEM, 0644)
+	err = os.WriteFile(".synk/ecdsa_public.pem", publicKeyPEM, 0644)
 	if err != nil {
 		return fmt.Errorf("Erro ao salvar a chave pública ECDSA: %w", err)
 	}

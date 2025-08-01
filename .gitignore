@@ -15,6 +15,7 @@ main.exe
 *.pem
 *.key
 device.id
+.synk
 
 # Arquivos de log
 *.log

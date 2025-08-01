@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	os.MkdirAll(".synk", os.ModePerm)
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: cli <command>")
 		os.Exit(1)

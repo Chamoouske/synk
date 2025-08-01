@@ -1,10 +1,16 @@
 package init
 
 import (
+	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"synk/internal/domain"
 	"synk/internal/infraestructure/pem"
+	"synk/internal/infraestructure/service"
+
+	"gopkg.in/gcfg.v1"
 )
 
 const CommandName = "init"
@@ -18,13 +24,13 @@ func NewInitCommand(notifyer domain.Notifyer) *InitCommand {
 }
 
 func (c *InitCommand) Execute(args []string) error {
-	err := c.createKeys()
+	device, err := c.createKeys()
 	if err != nil {
 		c.notifyer.Notify("Erro ao criar chaves: " + err.Error())
 		os.Exit(1)
 	}
 
-	err = c.registerService()
+	err = c.registerService(*device)
 	if err != nil {
 		c.notifyer.Notify("Erro ao registrar serviço: " + err.Error())
 		os.Exit(1)
@@ -32,27 +38,100 @@ func (c *InitCommand) Execute(args []string) error {
 	return nil
 }
 
-func (c *InitCommand) createKeys() error {
+func (c *InitCommand) createKeys() (*domain.Device, error) {
+	device := c.LoadDevice()
+	if device != nil {
+		c.notifyer.Notify("Dispositivo carregado: " + device.ID)
+		return device, nil
+	}
 	privateKeyPEM, publicKeyPEM, err := pem.GenerateKeys()
 	if err != nil {
-		return fmt.Errorf("erro ao gerar chaves: %w", err)
+		return nil, fmt.Errorf("erro ao gerar chaves: %w", err)
 	}
 
 	err = pem.SaveKeys(privateKeyPEM, publicKeyPEM)
 	if err != nil {
-		return fmt.Errorf("erro ao salvar chaves: %w", err)
+		return nil, fmt.Errorf("erro ao salvar chaves: %w", err)
 	}
+	device = &domain.Device{ID: generateRandomID(), PublicKey: string(publicKeyPEM), PrivateKey: string(privateKeyPEM)}
 
-	c.notifyer.Notify("Chave Privada: " + string(privateKeyPEM))
-	c.notifyer.Notify("Chave Pública: " + string(publicKeyPEM))
+	err = c.SaveDevice(device)
 
-	return nil
+	c.notifyer.Notify("Dispositivo criado: " + device.ID)
+
+	if err != nil {
+		return nil, fmt.Errorf("erro ao salvar dispositivo: %w", err)
+	}
+	return device, nil
 }
 
-func (c *InitCommand) registerService() error {
-	return nil
+func (c *InitCommand) registerService(device domain.Device) error {
+	config, err := getConfigServer()
+	if err != nil {
+		return fmt.Errorf("erro ao obter configuração do servidor: %w", err)
+	}
+
+	config.Service.Name = device.ID
+	server, err := service.NewZeroconfService(config)
+	if err != nil {
+		return fmt.Errorf("erro ao registrar serviço Zeroconf: %w", err)
+	}
+	c.notifyer.Notify("Serviço Zeroconf registrado com sucesso.")
+	defer server.Unregister()
+	// return nil
+	select {}
 }
 
 func (c *InitCommand) UnregisterService() error {
 	return nil
+}
+
+func getConfigServer() (domain.Config, error) {
+	var config domain.Config
+	err := gcfg.ReadFileInto(&config, "config/service.cfg")
+	if err != nil {
+		return config, fmt.Errorf("falha ao ler o arquivo de configuração: %v", err)
+	}
+	return config, nil
+}
+
+func (c *InitCommand) SaveDevice(device *domain.Device) error {
+	file, err := os.Create(".synk/device.json")
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+
+	if err := encoder.Encode(device); err != nil {
+		return fmt.Errorf("failed to encode device to JSON: %w", err)
+	}
+
+	return nil
+}
+
+func (c *InitCommand) LoadDevice() *domain.Device {
+	device := &domain.Device{}
+	file, err := os.ReadFile(".synk/device.json")
+	if err != nil {
+		return nil
+	}
+	err = json.Unmarshal(file, device)
+	if err != nil {
+		return nil
+	}
+	if device.ID == "" || device.PublicKey == "" || device.PrivateKey == "" {
+		return nil
+	}
+	return device
+}
+
+func generateRandomID() string {
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatal("Failed to generate random ID:", err)
+	}
+	return fmt.Sprintf("%x", b)
 }
