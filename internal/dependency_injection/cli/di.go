@@ -2,7 +2,7 @@ package cli
 
 import (
 	initcmd "synk/internal/infraestructure/command/init"
-	"synk/internal/infraestructure/command/watch"
+	watch "synk/internal/infraestructure/command/watch"
 	factory "synk/internal/infraestructure/factory"
 )
 
