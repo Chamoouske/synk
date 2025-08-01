@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	dependency_injection "synk/internal/dependenci_injection/cli"
+	dependency_injection "synk/internal/dependency_injection/cli"
 )
 
 func main() {
