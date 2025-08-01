@@ -142,13 +142,19 @@ func connectToDevice(entry *zeroconf.ServiceEntry) {
 		return
 	}
 
-	address := fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port)
-	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
-	if err != nil {
-		log.Error("Conexão falhou: " + err.Error())
-		return
+	for ip := range entry.AddrIPv4 {
+		if ip <= 0 {
+			continue
+		}
+		address := fmt.Sprintf("Conectando a %s:%d", entry.AddrIPv4[ip], entry.Port)
+		log.Info(address)
+		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
+		if err != nil {
+			continue
+		}
+		defer conn.Close()
+		break
 	}
-	defer conn.Close()
 
 	log.Info("Conectado com sucesso a: " + entry.Instance)
 }
