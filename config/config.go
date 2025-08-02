@@ -38,8 +38,13 @@ func GetDevice() *domain.Device {
 	return device
 }
 
-func SaveDevice(privateKeyPEM string, publicKeyPEM string) (*domain.Device, error) {
+func GenerateDevice(privateKeyPEM string, publicKeyPEM string) (*domain.Device, error) {
 	device := &domain.Device{ID: generateRandomID(), PublicKey: string(publicKeyPEM), PrivateKey: string(privateKeyPEM)}
+
+	return SaveDevice(device)
+}
+
+func SaveDevice(device *domain.Device) (*domain.Device, error) {
 	file, err := os.Create(".synk/device.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)

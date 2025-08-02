@@ -51,6 +51,9 @@ func (c *AddCommand) Execute(args []string) error {
 
 	c.service = serv
 	err = c.service.AddDeviceToConnect(deviceID)
+	if err != nil {
+		return fmt.Errorf("erro ao adicionar dispositivo: %w", err)
+	}
 
 	return nil
 }

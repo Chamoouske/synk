@@ -65,7 +65,7 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 		return nil, fmt.Errorf("erro ao salvar chaves: %w", err)
 	}
 
-	device, err = config.SaveDevice(string(privateKeyPEM), string(publicKeyPEM))
+	device, err = config.GenerateDevice(string(privateKeyPEM), string(publicKeyPEM))
 
 	log.Info("Dispositivo criado: " + device.ID)
 

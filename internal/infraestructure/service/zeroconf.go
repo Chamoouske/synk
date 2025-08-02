@@ -6,10 +6,12 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"synk/config"
 	"synk/internal/domain"
 	"time"
 
 	"synk/pkg/logger"
+	"synk/pkg/utils"
 	"syscall"
 
 	"github.com/grandcat/zeroconf"
@@ -113,6 +115,14 @@ func (z *ZeroconfService) findDeviceAndConnect(entries chan *zeroconf.ServiceEnt
 		}
 		log.Info(fmt.Sprintf("ID encontrado: %s", deviceID))
 		go connectToDevice(entry)
+
+		device := config.GetDevice()
+		if device == nil {
+			log.Error("Dispositivo não encontrado, execute 'synk init' primeiro")
+			continue
+		}
+		device.Connections = utils.RemoveDuplicates(append(device.Connections, deviceID))
+		config.SaveDevice(device)
 	}
 
 	return nil
