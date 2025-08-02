@@ -17,6 +17,8 @@ import (
 
 var log = logger.GetLogger("zeroconf")
 
+var service *ZeroconfService
+
 type ZeroconfService struct {
 	server *zeroconf.Server
 	config domain.Config
@@ -25,11 +27,15 @@ type ZeroconfService struct {
 }
 
 func NewZeroconfService(config domain.Config, device *domain.Device) (*ZeroconfService, error) {
-	return &ZeroconfService{
-		config: config,
-		device: device,
-		Port:   config.Service.Port,
-	}, nil
+	if service == nil {
+		service = &ZeroconfService{
+			config: config,
+			device: device,
+			Port:   config.Service.Port,
+		}
+	}
+
+	return service, nil
 }
 
 func (z *ZeroconfService) Start() error {
@@ -50,8 +56,6 @@ func (z *ZeroconfService) Start() error {
 	z.server = server
 	log.Info(fmt.Sprintf("Serviço registrado: %s | Porta: %d | ID: %s",
 		z.config.Service.Name, z.config.Service.Port, z.device.ID))
-
-	go z.continuousDiscovery()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -77,17 +81,7 @@ func (z *ZeroconfService) GetPort() int {
 	return z.Port
 }
 
-func (z *ZeroconfService) continuousDiscovery() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		z.discoverDevices()
-		<-ticker.C
-	}
-}
-
-func (z *ZeroconfService) discoverDevices() {
+func (z *ZeroconfService) AddDeviceToConnect(ID string) {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		log.Error("Erro no resolvedor: " + err.Error())
@@ -99,7 +93,7 @@ func (z *ZeroconfService) discoverDevices() {
 	defer cancel()
 
 	go func() {
-		z.findDevices(entries)
+		z.findDeviceAndConnect(entries, ID)
 	}()
 
 	err = resolver.Browse(ctx, z.config.Service.Type, z.config.Service.Domain, entries)
@@ -110,13 +104,10 @@ func (z *ZeroconfService) discoverDevices() {
 	<-ctx.Done()
 }
 
-func (z *ZeroconfService) findDevices(entries chan *zeroconf.ServiceEntry) error {
+func (z *ZeroconfService) findDeviceAndConnect(entries chan *zeroconf.ServiceEntry, ID string) error {
 	for entry := range entries {
 		deviceID := getIDFromMetadata(entry.Text)
-		if deviceID == "" {
-			continue
-		}
-		if deviceID == z.device.ID {
+		if deviceID != ID {
 			continue
 		}
 		log.Info(fmt.Sprintf("ID encontrado: %s", deviceID))

@@ -1,8 +1,6 @@
 package init
 
 import (
-	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"os"
 	"synk/config"
@@ -46,7 +44,7 @@ func (c *InitCommand) Execute(args []string) error {
 }
 
 func (c *InitCommand) createKeys() (*domain.Device, error) {
-	device := c.LoadDevice()
+	device := config.GetDevice()
 	if device != nil {
 		log.Info("Dispositivo carregado: " + device.ID)
 		return device, nil
@@ -60,9 +58,8 @@ func (c *InitCommand) createKeys() (*domain.Device, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao salvar chaves: %w", err)
 	}
-	device = &domain.Device{ID: generateRandomID(), PublicKey: string(publicKeyPEM), PrivateKey: string(privateKeyPEM)}
 
-	err = c.SaveDevice(device)
+	device, err = config.SaveDevice(string(privateKeyPEM), string(publicKeyPEM))
 
 	log.Info("Dispositivo criado: " + device.ID)
 
@@ -86,45 +83,4 @@ func (c *InitCommand) registerService(device domain.Device) error {
 
 	c.service = server
 	return nil
-}
-
-func (c *InitCommand) SaveDevice(device *domain.Device) error {
-	file, err := os.Create(".synk/device.json")
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-
-	if err := encoder.Encode(device); err != nil {
-		return fmt.Errorf("failed to encode device to JSON: %w", err)
-	}
-
-	return nil
-}
-
-func (c *InitCommand) LoadDevice() *domain.Device {
-	device := &domain.Device{}
-	file, err := os.ReadFile(".synk/device.json")
-	if err != nil {
-		return nil
-	}
-	err = json.Unmarshal(file, device)
-	if err != nil {
-		return nil
-	}
-	if device.ID == "" || device.PublicKey == "" || device.PrivateKey == "" {
-		return nil
-	}
-	return device
-}
-
-func generateRandomID() string {
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		log.Error("Failed to generate random ID", "error", err)
-	}
-	return fmt.Sprintf("%x", b)
 }
