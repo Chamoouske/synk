@@ -2,11 +2,17 @@ package watch
 
 import (
 	"fmt"
+	"synk/internal/infraestructure/factory"
 )
 
 const CommandName = "watch"
 
 type WatchCommand struct {
+}
+
+func Init() {
+	commandsFactory := factory.NewCommandsFactory()
+	commandsFactory.RegisterCommand(CommandName, NewWatchCommand())
 }
 
 func NewWatchCommand() *WatchCommand {

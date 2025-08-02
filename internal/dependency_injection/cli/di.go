@@ -1,16 +1,16 @@
 package cli
 
 import (
-	initcmd "synk/internal/infraestructure/command/init"
-	watch "synk/internal/infraestructure/command/watch"
+	addCmd "synk/internal/infraestructure/command/add"
+	initCmd "synk/internal/infraestructure/command/init"
+	watchCmd "synk/internal/infraestructure/command/watch"
 	factory "synk/internal/infraestructure/factory"
 )
 
 func InitializeCommandsFactory() *factory.CommandsFactory {
-	commandsFactory := factory.NewCommandsFactory()
+	initCmd.Init()
+	addCmd.Init()
+	watchCmd.Init()
 
-	commandsFactory.RegisterCommand(initcmd.CommandName, initcmd.NewInitCommand())
-	commandsFactory.RegisterCommand(watch.CommandName, watch.NewWatchCommand())
-
-	return commandsFactory
+	return factory.NewCommandsFactory()
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"synk/config"
 	"synk/internal/domain"
+	"synk/internal/infraestructure/factory"
 	"synk/internal/infraestructure/pem"
 	"synk/internal/infraestructure/service"
 	"synk/pkg/logger"
@@ -16,6 +17,11 @@ var log = logger.GetLogger("init")
 
 type InitCommand struct {
 	service domain.Service
+}
+
+func Init() {
+	commandsFactory := factory.NewCommandsFactory()
+	commandsFactory.RegisterCommand(CommandName, NewInitCommand())
 }
 
 func NewInitCommand() *InitCommand {
