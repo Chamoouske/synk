@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	_ "synk/internal/infraestructure/command/add"
+	_ "synk/internal/infraestructure/command/init"
+	_ "synk/internal/infraestructure/command/watch"
 
 	dependency_injection "synk/internal/dependency_injection/cli"
 )

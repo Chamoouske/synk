@@ -5,6 +5,7 @@ import (
 	"os"
 	"synk/config"
 	"synk/internal/domain"
+	"synk/internal/infraestructure/command"
 	"synk/internal/infraestructure/factory"
 	"synk/internal/infraestructure/pem"
 	"synk/internal/infraestructure/service"
@@ -19,13 +20,12 @@ type InitCommand struct {
 	service domain.Service
 }
 
-func Init() {
-	commandsFactory := factory.NewCommandsFactory()
-	commandsFactory.RegisterCommand(CommandName, NewInitCommand())
+func (i *InitCommand) Init(commandsFactory *factory.CommandsFactory) {
+	commandsFactory.RegisterCommand(CommandName, i)
 }
 
-func NewInitCommand() *InitCommand {
-	return &InitCommand{}
+func init() {
+	command.RegisterCommand(&InitCommand{})
 }
 
 func (c *InitCommand) Execute(args []string) error {

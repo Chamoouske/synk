@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"synk/config"
 	"synk/internal/domain"
+	"synk/internal/infraestructure/command"
 	"synk/internal/infraestructure/factory"
 	"synk/internal/infraestructure/service"
 	"synk/pkg/logger"
@@ -17,13 +18,12 @@ type AddCommand struct {
 	service domain.Service
 }
 
-func Init() {
-	commandsFactory := factory.NewCommandsFactory()
-	commandsFactory.RegisterCommand(CommandName, NewAddCommand())
+func (a *AddCommand) Init(commandsFactory *factory.CommandsFactory) {
+	commandsFactory.RegisterCommand(CommandName, a)
 }
 
-func NewAddCommand() *AddCommand {
-	return &AddCommand{}
+func init() {
+	command.RegisterCommand(&AddCommand{})
 }
 
 func (c *AddCommand) Execute(args []string) error {

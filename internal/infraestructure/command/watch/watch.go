@@ -2,6 +2,7 @@ package watch
 
 import (
 	"fmt"
+	"synk/internal/infraestructure/command"
 	"synk/internal/infraestructure/factory"
 )
 
@@ -10,13 +11,12 @@ const CommandName = "watch"
 type WatchCommand struct {
 }
 
-func Init() {
-	commandsFactory := factory.NewCommandsFactory()
-	commandsFactory.RegisterCommand(CommandName, NewWatchCommand())
+func (w *WatchCommand) Init(factory *factory.CommandsFactory) {
+	factory.RegisterCommand(CommandName, w)
 }
 
-func NewWatchCommand() *WatchCommand {
-	return &WatchCommand{}
+func init() {
+	command.RegisterCommand(&WatchCommand{})
 }
 
 func (c *WatchCommand) Execute(args []string) error {
