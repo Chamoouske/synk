@@ -81,11 +81,11 @@ func (z *ZeroconfService) GetPort() int {
 	return z.Port
 }
 
-func (z *ZeroconfService) AddDeviceToConnect(ID string) {
+func (z *ZeroconfService) AddDeviceToConnect(ID string) error {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		log.Error("Erro no resolvedor: " + err.Error())
-		return
+		return err
 	}
 
 	entries := make(chan *zeroconf.ServiceEntry)
@@ -102,6 +102,7 @@ func (z *ZeroconfService) AddDeviceToConnect(ID string) {
 	}
 
 	<-ctx.Done()
+	return nil
 }
 
 func (z *ZeroconfService) findDeviceAndConnect(entries chan *zeroconf.ServiceEntry, ID string) error {
