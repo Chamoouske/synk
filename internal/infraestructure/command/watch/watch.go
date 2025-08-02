@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"synk/internal/infraestructure/command"
 	"synk/internal/infraestructure/factory"
+	"synk/pkg/logger"
 )
 
 const CommandName = "watch"
+
+var log = logger.GetLogger("init")
 
 type WatchCommand struct {
 }

@@ -5,4 +5,6 @@ type Service interface {
 	Stop() error
 	GetPort() int
 	AddDeviceToConnect(deviceID string) error
+	StartAutoDiscovery() error
+	StopAutoDiscovery() error
 }

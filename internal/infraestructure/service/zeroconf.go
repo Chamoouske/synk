@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"synk/pkg/logger"
-	"synk/pkg/utils"
 	"syscall"
 
 	"github.com/grandcat/zeroconf"
@@ -22,10 +21,11 @@ var log = logger.GetLogger("zeroconf")
 var service *ZeroconfService
 
 type ZeroconfService struct {
-	server *zeroconf.Server
-	config domain.Config
-	device *domain.Device
-	Port   int
+	server           *zeroconf.Server
+	config           domain.Config
+	device           *domain.Device
+	Port             int
+	ticAutoDiscovery time.Ticker
 }
 
 func NewZeroconfService(config domain.Config, device *domain.Device) (*ZeroconfService, error) {
@@ -65,6 +65,15 @@ func (z *ZeroconfService) Start() error {
 		<-sigChan
 		z.Stop()
 		os.Exit(0)
+	}()
+
+	log.Info("Serviço zeroconf iniciado, aguardando conexões...")
+	z.ticAutoDiscovery = *time.NewTicker(10 * time.Second)
+	go func() {
+		<-z.ticAutoDiscovery.C
+		if err := z.StartAutoDiscovery(); err != nil {
+			log.Error("Erro ao iniciar descoberta automática: " + err.Error())
+		}
 	}()
 
 	return nil
@@ -107,6 +116,50 @@ func (z *ZeroconfService) AddDeviceToConnect(ID string) error {
 	return nil
 }
 
+func (z *ZeroconfService) StartAutoDiscovery() error {
+	if z.server == nil {
+		return fmt.Errorf("serviço zeroconf não iniciado")
+	}
+	log.Info("Iniciando descoberta automática de dispositivos...")
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		return fmt.Errorf("erro ao criar resolvedor: %w", err)
+	}
+	entries := make(chan *zeroconf.ServiceEntry)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		for entry := range entries {
+			deviceID := getIDFromMetadata(entry.Text)
+			if deviceID == "" {
+				continue
+			}
+			log.Info(fmt.Sprintf("Dispositivo encontrado: %s (ID: %s)", entry.Instance, deviceID))
+			go connectToDevice(entry)
+			device := config.GetDevice()
+			if device == nil {
+				log.Error("Dispositivo não encontrado, execute 'synk init' primeiro")
+				continue
+			}
+			// device.Connections = utils.RemoveDuplicates(append(device.Connections, deviceID))
+			// config.SaveDevice(device)
+		}
+	}()
+	err = resolver.Browse(ctx, z.config.Service.Type, z.config.Service.Domain, entries)
+	if err != nil {
+		return fmt.Errorf("erro ao iniciar descoberta automática: %w", err)
+	}
+	<-ctx.Done()
+	log.Info("Descoberta automática de dispositivos finalizada.")
+	return nil
+}
+
+func (z *ZeroconfService) StopAutoDiscovery() error {
+	z.ticAutoDiscovery.Stop()
+	log.Info("Descoberta automática de dispositivos parada.")
+	return nil
+}
+
 func (z *ZeroconfService) findDeviceAndConnect(entries chan *zeroconf.ServiceEntry, ID string) error {
 	for entry := range entries {
 		deviceID := getIDFromMetadata(entry.Text)
@@ -121,8 +174,8 @@ func (z *ZeroconfService) findDeviceAndConnect(entries chan *zeroconf.ServiceEnt
 			log.Error("Dispositivo não encontrado, execute 'synk init' primeiro")
 			continue
 		}
-		device.Connections = utils.RemoveDuplicates(append(device.Connections, deviceID))
-		config.SaveDevice(device)
+		// device.Connections = utils.RemoveDuplicates(append(device.Connections, deviceID))
+		// config.SaveDevice(device)
 	}
 
 	return nil
@@ -143,12 +196,10 @@ func connectToDevice(entry *zeroconf.ServiceEntry) {
 		return
 	}
 
-	for ip := range entry.AddrIPv4 {
-		if ip <= 0 {
-			continue
-		}
-		address := fmt.Sprintf("Conectando a %s:%d", entry.AddrIPv4[ip], entry.Port)
-		log.Info(address)
+	for _, ip := range entry.AddrIPv4 {
+
+		address := fmt.Sprintf("%s:%d", ip, entry.Port)
+		log.Info(fmt.Sprintf("Conectando a %s", address))
 		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
 		if err != nil {
 			continue
